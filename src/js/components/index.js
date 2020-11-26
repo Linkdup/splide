@@ -18,6 +18,7 @@ import Cover       from './cover';
 import Arrows      from './arrows';
 import Pagination  from './pagination';
 import LazyLoad    from './lazyload';
+import LazySlide   from './lazyslide';
 import Keyboard    from './keyboard';
 import A11y        from './a11y';
 import Sync        from './sync';
@@ -38,6 +39,7 @@ export const COMPLETE = {
 	Arrows,
 	Pagination,
 	LazyLoad,
+	LazySlide,
 	Keyboard,
 	Sync,
 	A11y,

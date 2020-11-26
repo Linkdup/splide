@@ -492,7 +492,7 @@ function child(parent, tagOrClassName) {
   return children(parent, tagOrClassName)[0];
 }
 /**
- * Return chile elements that matches the provided tag or class name.
+ * Return child elements that matches the provided tag or class name.
  *
  * @param {Element} parent         - A parent element.
  * @param {string}  tagOrClassName - A tag or class name.
@@ -503,7 +503,7 @@ function child(parent, tagOrClassName) {
 function children(parent, tagOrClassName) {
   if (parent) {
     return values(parent.children).filter(function (child) {
-      return hasClass(child, tagOrClassName.split(' ')[0]) || child.tagName === tagOrClassName;
+      return child instanceof Element && (hasClass(child, tagOrClassName.split(' ')[0]) || child.tagName === tagOrClassName);
     });
   }
 
@@ -5120,6 +5120,209 @@ var SRCSET_DATA_NAME = 'data-splide-lazy-srcset';
 
   return Lazyload;
 });
+// CONCATENATED MODULE: ./src/js/components/lazyslide/index.js
+/**
+ * The component for loading slider images lazily with advanced features.
+ */
+
+
+
+/**
+ * The name for a data attribute of src.
+ *
+ * @type {string}
+ */
+
+var lazyslide_SRC_DATA_NAME = 'data-splide-lazy';
+/**
+ * The name for a data attribute of srcset.
+ *
+ * @type {string}
+ */
+
+var lazyslide_SRCSET_DATA_NAME = 'data-splide-lazy-srcset';
+/**
+ * The component for loading slider images lazily.
+ *
+ * @param {Splide} Splide     - A Splide instance.
+ * @param {Object} Components - An object containing components.
+ * @param {string} name       - A component name as a lowercase string.
+ *
+ * @return {Object} - The component object.
+ */
+
+/* harmony default export */ var lazyslide = (function (Splide, Components, name) {
+  /**
+   * Next index for sequential loading.
+   *
+   * @type {number}
+   */
+  var nextIndex;
+  /**
+   * Store objects containing an img element and a Slide object.
+   *
+   * @type {Object[]}
+   */
+
+  var images;
+  /**
+   * Store the options.
+   *
+   * @type {Object}
+   */
+
+  var options = Splide.options;
+  /**
+   * LazySlide component object.
+   *
+   * @type {Object}
+   */
+
+  var LazySlide = {
+    /**
+     * Mount only when the LazySlide option is provided.
+     *
+     * @type {boolean}
+     */
+    required: options.lazySlide,
+
+    /**
+     * Called when the component is mounted.
+     */
+    mount: function mount() {
+      if (options.lazySlide) {
+        var observer = new IntersectionObserver(function (entries, self) {
+          entries.forEach(function (entry) {
+            if (entry.isIntersecting) {
+              check(0);
+              Splide.on("mounted refresh moved." + name, check);
+              self.unobserve(entry.target);
+            }
+          });
+        }, {
+          rootMargin: '0px 0px 50px 0px',
+          threshold: 0
+        });
+        observer.observe(Splide.root);
+        Splide.on('mounted refresh', function () {
+          init();
+          Components.Elements.each(function (Slide) {
+            each(Slide.slide.querySelectorAll("[" + lazyslide_SRC_DATA_NAME + "], [" + lazyslide_SRCSET_DATA_NAME + "]"), function (img) {
+              // if ( ! img.src && ! img.srcset ) {
+              images.push({
+                img: img,
+                Slide: Slide
+              });
+              applyStyle(img, {
+                display: 'none'
+              }); // }
+            });
+          });
+        });
+      }
+    },
+
+    /**
+     * Destroy.
+     */
+    destroy: init
+  };
+  /**
+   * Initialize parameters.
+   */
+
+  function init() {
+    images = [];
+    nextIndex = 0;
+  }
+  /**
+   * Check how close each image is from the active slide and
+   * determine whether to start loading or not, according to the distance.
+   *
+   * @param {number} index - Current index.
+   */
+
+
+  function check(index) {
+    index = isNaN(index) ? Splide.index : index;
+    images = images.filter(function (image) {
+      if (image.Slide.isWithin(index, options.perPage * (options.preloadPages + 1))) {
+        load(image.img, image.Slide);
+        return false;
+      }
+
+      return true;
+    }); // Unbind if all images are loaded.
+
+    if (!images[0]) {
+      Splide.off("moved." + name);
+    }
+  }
+  /**
+   * Start loading an image.
+   * Creating a clone of the image element since setting src attribute directly to it
+   * often occurs 'hitch', blocking some other processes of a browser.
+   *
+   * @param {Element} img   - An image element.
+   * @param {Object}  Slide - A Slide object.
+   */
+
+
+  function load(img, Slide) {
+    addClass(Slide.slide, STATUS_CLASSES.loading);
+    var spinner = create('span', {
+      "class": Splide.classes.spinner
+    });
+    append(img.parentElement, spinner);
+
+    img.onload = function () {
+      loaded(img, spinner, Slide, false);
+    };
+
+    img.onerror = function () {
+      loaded(img, spinner, Slide, true);
+    };
+
+    setAttribute(img, 'srcset', getAttribute(img, lazyslide_SRCSET_DATA_NAME) || '');
+    setAttribute(img, 'src', getAttribute(img, lazyslide_SRC_DATA_NAME) || '');
+  }
+  /**
+   * Start loading a next image in images array.
+   */
+
+
+  function loadNext() {
+    if (nextIndex < images.length) {
+      var image = images[nextIndex];
+      load(image.img, image.Slide);
+    }
+
+    nextIndex++;
+  }
+  /**
+   * Called just after the image was loaded or loading was aborted by some error.
+   *
+   * @param {Element} img     - An image element.
+   * @param {Element} spinner - A spinner element.
+   * @param {Object}  Slide   - A Slide object.
+   * @param {boolean} error   - True if the image was loaded successfully or false on error.
+   */
+
+
+  function loaded(img, spinner, Slide, error) {
+    removeClass(Slide.slide, STATUS_CLASSES.loading);
+
+    if (!error) {
+      dom_remove(spinner);
+      applyStyle(img, {
+        display: ''
+      });
+      Splide.emit(name + ":loaded", img).emit('resize');
+    }
+  }
+
+  return LazySlide;
+});
 // CONCATENATED MODULE: ./src/js/constants/a11y.js
 /**
  * Export aria attribute names.
@@ -5848,6 +6051,7 @@ var THROTTLE = 50;
 
 
 
+
 var COMPLETE = {
   Options: components_options,
   Breakpoints: components_breakpoints,
@@ -5863,6 +6067,7 @@ var COMPLETE = {
   Arrows: components_arrows,
   Pagination: components_pagination,
   LazyLoad: lazyload,
+  LazySlide: lazyslide,
   Keyboard: components_keyboard,
   Sync: sync,
   A11y: a11y
